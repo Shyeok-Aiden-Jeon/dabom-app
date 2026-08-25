@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="theme-color" content="#0e0f16" />
+<title>다봄 — 애니·웹툰 아카이브</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎬</text></svg>" />
+<style>
+  :root{
+    --bg-0:#0e0f16; --bg-1:#151826; --surface:#191d2c; --card:#1d2233; --card-hover:#252b40;
+    --line:#2a3044; --line-soft:#232838; --ink:#f0eee6; --ink-dim:#9498ab; --ink-faint:#5c6178;
+    --amber:#eab155; --amber-soft:rgba(234,177,85,0.14);
+    --teal:#5fd0c0; --teal-soft:rgba(95,208,192,0.14);
+    --rose:#e88a8f; --rose-soft:rgba(232,138,143,0.14);
+    --green:#7fd08a;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --serif: Georgia, "Noto Serif KR", "Nanum Myeongjo", serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; background:var(--bg-0);}
+  body{font-family:var(--sans); color:var(--ink);}
+
+  .db-root{
+    background:
+      radial-gradient(700px 380px at 8% -10%, rgba(234,177,85,0.08), transparent 60%),
+      radial-gradient(600px 420px at 100% 0%, rgba(95,208,192,0.07), transparent 55%),
+      var(--bg-0);
+    min-height:100vh;
+    padding:22px 14px calc(100px + env(safe-area-inset-bottom)) 14px;
+  }
+  .db-header{display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:10px;}
+  .db-wordmark{font-family:var(--serif); font-size:25px; font-weight:700; display:flex; align-items:baseline; gap:8px;}
+  .db-wordmark small{font-family:var(--mono); font-size:9px; color:var(--ink-faint); font-weight:400; letter-spacing:1.2px; text-transform:uppercase;}
+  .db-stats{font-family:var(--mono); font-size:11px; color:var(--ink-dim); display:flex; align-items:center; gap:10px;}
+  .db-stats b{color:var(--amber); font-weight:600;}
+  .db-syncdot{width:7px; height:7px; border-radius:50%; display:inline-block; margin-right:2px;}
+  .db-syncdot.ok{background:var(--green);}
+  .db-syncdot.fail{background:var(--rose);}
+  .db-syncdot.pending{background:var(--ink-faint); animation:pulse 1.2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+  .db-syncbanner{font-size:11px; color:var(--rose); background:var(--rose-soft); border:1px solid rgba(232,138,143,0.35);
+    padding:8px 12px; border-radius:8px; margin-bottom:14px; display:none;}
+  .db-syncbanner.show{display:block;}
+
+  .db-tabbar{display:flex; gap:3px; padding:4px; background:var(--surface); border:1px solid var(--line);
+    border-radius:11px; margin-bottom:14px; width:100%;}
+  .db-tabbtn{font-family:var(--sans); font-size:12px; font-weight:600; padding:8px 10px; border-radius:8px;
+    border:none; cursor:pointer; background:transparent; color:var(--ink-faint); display:flex; align-items:center;
+    gap:5px; white-space:nowrap; flex:1; justify-content:center;}
+  .db-tabbtn.active{background:var(--card); color:var(--ink);}
+  .db-tabbtn .n{font-family:var(--mono); font-size:10px; opacity:.7;}
+  .db-tabbtn.active.tab-towatch{color:var(--amber);}
+  .db-tabbtn.active.tab-watched{color:var(--teal);}
+  .db-tabbtn.active.tab-dropped{color:var(--rose);}
+
+  .db-toolbar{display:flex; gap:7px; margin-bottom:10px; flex-wrap:wrap;}
+  .db-input, .db-select{background:var(--surface); border:1px solid var(--line); color:var(--ink);
+    font-family:var(--sans); font-size:12.5px; padding:8px 10px; border-radius:8px; outline:none;}
+  .db-input{flex:1; min-width:120px;}
+  .db-input:focus, .db-select:focus{border-color:var(--amber);}
+  .db-select{cursor:pointer;}
+
+  .db-tagfilter{display:flex; gap:5px; flex-wrap:wrap; margin-bottom:16px; max-height:0; overflow:hidden; transition:max-height .2s;}
+  .db-tagfilter.open{max-height:400px;}
+  .db-tagtoggle{font-family:var(--mono); font-size:10.5px; color:var(--ink-dim); background:none; border:1px dashed var(--line);
+    padding:5px 10px; border-radius:999px; cursor:pointer; margin-bottom:10px;}
+  .db-tagchip{font-family:var(--mono); font-size:10px; padding:5px 9px; border-radius:999px; background:var(--surface);
+    border:1px solid var(--line); color:var(--ink-dim); cursor:pointer;}
+  .db-tagchip.on{background:var(--amber-soft); border-color:var(--amber); color:var(--amber);}
+  .db-tagchip.clear{color:var(--ink-faint);}
+
+  .db-grid{display:grid; grid-template-columns:repeat(3, 1fr); gap:9px;}
+  @media (min-width:640px){ .db-grid{ grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:14px; } }
+
+  .db-card{background:var(--card); border:1px solid var(--line); border-radius:11px; overflow:hidden;
+    cursor:pointer; transition:transform .13s, box-shadow .13s; display:flex; flex-direction:column;}
+  .db-card:hover{transform:translateY(-3px); box-shadow:0 10px 24px rgba(0,0,0,0.35);}
+
+  .db-thumb{aspect-ratio:2/3; position:relative; display:flex; align-items:center; justify-content:center; overflow:hidden; background:var(--surface);}
+  .db-thumb img{width:100%; height:100%; object-fit:cover; display:block;}
+  .db-thumb .glow{position:absolute; inset:-30%; background:radial-gradient(circle at 30% 20%, rgba(255,255,255,0.16), transparent 55%);}
+  .db-thumb .icon{font-size:26px; filter:drop-shadow(0 3px 6px rgba(0,0,0,0.35)); z-index:1;}
+  .db-thumb .kindtag{position:absolute; bottom:5px; left:5px; font-family:var(--mono); font-size:7.5px;
+    padding:2px 5px; border-radius:4px; background:rgba(10,11,16,0.55); color:rgba(255,255,255,0.85); z-index:2;}
+  .db-fav{position:absolute; top:5px; right:5px; width:21px; height:21px; border-radius:50%;
+    background:rgba(10,11,16,0.5); border:none; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; font-size:11px; color:rgba(255,255,255,0.5); z-index:3;}
+  .db-fav.on{color:var(--amber); background:rgba(10,11,16,0.75);}
+
+  .db-info{padding:7px 8px 9px; display:flex; flex-direction:column; gap:4px; flex:1; border-top:1px solid var(--line-soft);}
+  .db-name{font-size:11px; font-weight:600; line-height:1.3; color:var(--ink);
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
+  .db-tagrow{display:flex; gap:3px; flex-wrap:wrap;}
+  .db-mtag{font-family:var(--mono); font-size:8px; padding:1.5px 5px; border-radius:4px;
+    background:var(--surface); color:var(--ink-dim); border:1px solid var(--line);}
+  .db-note{font-size:9px; color:var(--ink-faint); font-style:italic; line-height:1.25;}
+  .db-stars{font-size:9.5px; color:var(--amber); font-family:var(--mono);}
+  .db-cscore{font-size:8.5px; color:var(--ink-faint); font-family:var(--mono);}
+  .db-reason{font-size:9px; color:var(--rose);}
+
+  .db-empty{grid-column:1/-1; text-align:center; padding:60px 16px; color:var(--ink-faint); font-family:var(--serif); font-size:14px;}
+
+  .db-fab{position:fixed; bottom:calc(20px + env(safe-area-inset-bottom)); right:18px; background:var(--amber); color:#211705; border:none;
+    border-radius:999px; padding:12px 18px; font-family:var(--sans); font-weight:700; font-size:12.5px;
+    cursor:pointer; box-shadow:0 8px 22px rgba(0,0,0,0.45); z-index:50;}
+  .db-fab:hover{filter:brightness(1.07);}
+
+  .db-overlay{position:fixed; inset:0; background:rgba(6,7,11,0.75); display:flex; align-items:center;
+    justify-content:center; z-index:100; padding:14px;}
+  .db-modal{background:var(--bg-1); border:1px solid var(--line); border-radius:16px; width:100%; max-width:440px;
+    max-height:90vh; overflow-y:auto; padding:20px; position:relative;}
+  .db-modal h3{font-family:var(--serif); font-size:18px; margin:0 0 4px; padding-right:26px;}
+  .db-modal .close{position:absolute; top:16px; right:16px; background:none; border:none; color:var(--ink-faint); font-size:18px; cursor:pointer;}
+  .db-field{margin-top:14px;}
+  .db-field label{display:block; font-size:10px; color:var(--ink-faint); font-family:var(--mono); margin-bottom:6px; letter-spacing:.5px; text-transform:uppercase;}
+  .db-field input[type=text], .db-field textarea{width:100%; background:var(--surface); border:1px solid var(--line);
+    color:var(--ink); font-family:var(--sans); font-size:13px; padding:9px 11px; border-radius:8px; outline:none;}
+  .db-field textarea{resize:vertical; min-height:52px;}
+  .db-field input:focus, .db-field textarea:focus{border-color:var(--amber);}
+
+  .db-chiprow{display:flex; gap:6px; flex-wrap:wrap;}
+  .db-pill{font-size:11px; padding:6px 10px; border-radius:999px; border:1px solid var(--line);
+    background:var(--surface); color:var(--ink-dim); cursor:pointer;}
+  .db-pill.sel{background:var(--teal-soft); border-color:var(--teal); color:var(--teal);}
+  .db-pill.sel.reason{background:var(--rose-soft); border-color:var(--rose); color:var(--rose);}
+  .db-pill.sel.ott{background:var(--amber-soft); border-color:var(--amber); color:var(--amber);}
+
+  .db-typerow{display:flex; gap:8px;}
+  .db-typerow button{flex:1; padding:9px; border-radius:8px; border:1px solid var(--line); background:var(--surface);
+    color:var(--ink-dim); font-size:12px; cursor:pointer;}
+  .db-typerow button.sel{border-color:var(--amber); color:var(--amber); background:var(--amber-soft);}
+
+  .db-starrow{display:flex; align-items:center; gap:10px;}
+  .db-starrow input[type=range]{flex:1; accent-color:var(--amber);}
+  .db-starrow .val{font-family:var(--mono); font-size:13px; color:var(--amber); min-width:32px;}
+
+  .db-actions{display:flex; gap:8px; margin-top:18px;}
+  .db-btn{flex:1; padding:11px; border-radius:9px; border:none; cursor:pointer; font-family:var(--sans); font-size:12.5px; font-weight:600;}
+  .db-btn.primary{background:var(--amber); color:#211705;}
+  .db-btn.teal{background:var(--teal); color:#062420;}
+  .db-btn.ghost{background:var(--surface); color:var(--ink-dim); border:1px solid var(--line);}
+  .db-btn.danger{background:var(--rose-soft); color:var(--rose); border:1px solid rgba(232,138,143,0.4);}
+  .db-btn:hover{filter:brightness(1.08);}
+
+  .db-searchresults{display:flex; flex-direction:column; gap:6px; max-height:280px; overflow-y:auto; margin-top:8px;}
+  .db-sr-item{display:flex; gap:10px; padding:7px; border:1px solid var(--line); border-radius:9px; cursor:pointer; background:var(--surface); align-items:center;}
+  .db-sr-item:hover{border-color:var(--amber);}
+  .db-sr-item img{width:38px; height:52px; object-fit:cover; border-radius:5px; flex-shrink:0; background:var(--card);}
+  .db-sr-item .meta{display:flex; flex-direction:column; gap:2px; min-width:0;}
+  .db-sr-item .t{font-size:12px; font-weight:600; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .db-sr-item .s{font-size:10px; color:var(--ink-faint); font-family:var(--mono);}
+  .db-searchstatus{font-size:11px; color:var(--ink-faint); margin-top:6px; font-family:var(--mono);}
+  .db-linklike{background:none; border:none; color:var(--teal); font-size:11.5px; cursor:pointer; text-decoration:underline; padding:0; margin-top:8px;}
+
+  .db-loading{display:flex; align-items:center; justify-content:center; padding:70px; color:var(--ink-faint); font-family:var(--serif);}
+</style>
+</head>
+<body>
+
+<div class="db-root">
+  <div class="db-header">
+    <div class="db-wordmark">다봄 <small>Anime &amp; Webtoon Archive</small></div>
+    <div class="db-stats" id="db-stats"></div>
+  </div>
+  <div class="db-syncbanner" id="db-syncbanner"></div>
+
+  <div class="db-tabbar" id="db-tabbar"></div>
+
+  <div class="db-toolbar">
+    <input class="db-input" id="db-search" type="text" placeholder="제목 검색..." />
+    <select class="db-select" id="db-typefilter">
+      <option value="all">전체</option>
+      <option value="anime">애니</option>
+      <option value="webtoon">웹툰</option>
+    </select>
+    <select class="db-select" id="db-sort"></select>
+  </div>
+  <button class="db-tagtoggle" id="db-tagtoggle">🏷 태그로 필터링</button>
+  <div class="db-tagfilter" id="db-tagfilter"></div>
+
+  <div class="db-grid" id="db-grid"><div class="db-loading">불러오는 중...</div></div>
+</div>
+
+<button class="db-fab" id="db-add-btn">+ 새 작품</button>
+<div id="db-modal-root"></div>
+<script id="db-seed" type="application/json">[{"id": "tw1", "title": "데이트 어 라이브", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "4기 EP7까지 시청", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628026516, "cover": null, "communityScore": null}, {"id": "tw2", "title": "킬라킬", "type": "anime", "status": "dropped", "platform": "", "genre": "", "note": "보다가 중단함", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628027516, "cover": null, "communityScore": null}, {"id": "tw3", "title": "문호 스트레이독스", "type": "anime", "status": "dropped", "platform": "", "genre": "", "note": "1기 EP9까지 시청", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628028516, "cover": null, "communityScore": null}, {"id": "tw4", "title": "원피스", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["모험", "열혈"], "ott": [], "reasonTags": [], "addedAt": 1787628029516, "cover": null, "communityScore": null}, {"id": "tw5", "title": "나루토", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["액션", "열혈"], "ott": [], "reasonTags": [], "addedAt": 1787628030516, "cover": null, "communityScore": null}, {"id": "tw6", "title": "블리치", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["액션", "초자연"], "ott": [], "reasonTags": [], "addedAt": 1787628031516, "cover": null, "communityScore": null}, {"id": "tw7", "title": "강철의 연금술사", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["다크판타지", "모험"], "ott": [], "reasonTags": [], "addedAt": 1787628032516, "cover": null, "communityScore": null}, {"id": "tw8", "title": "진격의 거인", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["다크판타지", "액션"], "ott": [], "reasonTags": [], "addedAt": 1787628033516, "cover": null, "communityScore": null}, {"id": "tw9", "title": "주술회전", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["액션", "초자연"], "ott": [], "reasonTags": [], "addedAt": 1787628034516, "cover": null, "communityScore": null}, {"id": "tw10", "title": "우에키의 법칙", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628035516, "cover": null, "communityScore": null}, {"id": "tw11", "title": "천원돌파 그렌라간", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628036516, "cover": null, "communityScore": null}, {"id": "tw12", "title": "변태왕자와 웃지 않는 고양이", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628037516, "cover": null, "communityScore": null}, {"id": "tw13", "title": "마요치키!", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628038516, "cover": null, "communityScore": null}, {"id": "tw14", "title": "무장연금", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628039516, "cover": null, "communityScore": null}, {"id": "tw15", "title": "모노가타리 시리즈", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "바케모노가타리~끝맺음이야기까지 보기", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628040516, "cover": null, "communityScore": null}, {"id": "tw16", "title": "프린세스 러버!", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628041516, "cover": null, "communityScore": null}, {"id": "tw17", "title": "신만이 아는 세계", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628042516, "cover": null, "communityScore": null}, {"id": "tw18", "title": "마켄키!", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628043516, "cover": null, "communityScore": null}, {"id": "tw19", "title": "무효와 로지의 마법률 상담사무소", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628044516, "cover": null, "communityScore": null}, {"id": "tw20", "title": "걸스 브라보", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628045516, "cover": null, "communityScore": null}, {"id": "tw21", "title": "가정교사 히트맨 REBORN!", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "초기 에피소드만", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628046516, "cover": null, "communityScore": null}, {"id": "tw22", "title": "퀸즈 블레이드 시리즈", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628047516, "cover": null, "communityScore": null}, {"id": "tw24", "title": "하이스쿨 DxD", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "OVA(비방영판) 포함해서 보기", "rating": null, "comment": "", "favorite": false, "tags": ["학원"], "ott": [], "reasonTags": [], "addedAt": 1787628048516, "cover": null, "communityScore": null}, {"id": "tw25", "title": "신의 물방울 OVA", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628049516, "cover": null, "communityScore": null}, {"id": "tw26", "title": "마법전쟁 (Magical Warfare)", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "생산계 판타지 찾아보자", "rating": null, "comment": "", "favorite": false, "tags": ["판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628050516, "cover": null, "communityScore": null}, {"id": "tw27", "title": "백화요란 사무라이걸즈", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628051516, "cover": null, "communityScore": null}, {"id": "tw28", "title": "신의 탑", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "BD판으로 보기", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628052516, "cover": null, "communityScore": null}, {"id": "tw29", "title": "노을빛으로 물든 언덕", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628053516, "cover": null, "communityScore": null}, {"id": "tw30", "title": "트러블 시리즈 (To LOVEる)", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628054516, "cover": null, "communityScore": null}, {"id": "tw31", "title": "트러블 다크니스 (To LOVEる Darkness)", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628055516, "cover": null, "communityScore": null}, {"id": "tw32", "title": "성흔의 퀘이사", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628056516, "cover": null, "communityScore": null}, {"id": "tw33", "title": "카노콘", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628057516, "cover": null, "communityScore": null}, {"id": "tw34", "title": "요스가노소라", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628058516, "cover": null, "communityScore": null}, {"id": "tw35", "title": "Kiss×sis", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628059516, "cover": null, "communityScore": null}, {"id": "tw36", "title": "새여동생 마왕의 계약자", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628060516, "cover": null, "communityScore": null}, {"id": "tw37", "title": "→ 진짜 수위는 BD에서 해금됨", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628061516, "cover": null, "communityScore": null}, {"id": "tw38", "title": "re:CREATORS", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628062516, "cover": null, "communityScore": null}, {"id": "tw39", "title": "마왕성에서 잘 자요", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628063516, "cover": null, "communityScore": null}, {"id": "tw40", "title": "Baccano! (박카노!)", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628064516, "cover": null, "communityScore": null}, {"id": "tw41", "title": "페이트 그랜드 오더", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628065516, "cover": null, "communityScore": null}, {"id": "tw42", "title": "파워 오브 스마일", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "Bofuri 외전 같은 느낌이라 함", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628066516, "cover": null, "communityScore": null}, {"id": "tw43", "title": "도사의 무녀", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628067516, "cover": null, "communityScore": null}, {"id": "tw44", "title": "소드 가이: The Animation", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628068516, "cover": null, "communityScore": null}, {"id": "tw45", "title": "플래닛 위드", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628069516, "cover": null, "communityScore": null}, {"id": "tw46", "title": "헬싱 OVA", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628070516, "cover": null, "communityScore": null}, {"id": "tw47", "title": "트리니티 블러드", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628071516, "cover": null, "communityScore": null}, {"id": "tw48", "title": "그리자이아 시리즈", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628072516, "cover": null, "communityScore": null}, {"id": "tw50", "title": "유녀전기", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628073516, "cover": null, "communityScore": null}, {"id": "tw51", "title": "블랙 클로버", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628074516, "cover": null, "communityScore": null}, {"id": "tw52", "title": "건슬링거 걸", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628075516, "cover": null, "communityScore": null}, {"id": "tw53", "title": "91 Days", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628076516, "cover": null, "communityScore": null}, {"id": "tw54", "title": "마법소녀 마도카☆마기카", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628077516, "cover": null, "communityScore": null}, {"id": "tw55", "title": "다카기양 얼굴 빨개지는 순간", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628078516, "cover": null, "communityScore": null}, {"id": "tw56", "title": "하느님의 메모장", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628079516, "cover": null, "communityScore": null}, {"id": "tw57", "title": "약사의혼잣말", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628080516, "cover": null, "communityScore": null}, {"id": "tw58", "title": "카오스 헤드", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628081516, "cover": null, "communityScore": null}, {"id": "tw59", "title": "슈타인즈 게이트", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["SF", "스릴러"], "ott": [], "reasonTags": [], "addedAt": 1787628082516, "cover": null, "communityScore": null}, {"id": "tw61", "title": "아카메가 벤다", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628083516, "cover": null, "communityScore": null}, {"id": "tw62", "title": "바질리스크", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628084516, "cover": null, "communityScore": null}, {"id": "tw63", "title": "달링 인 더 프랑키스", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628085516, "cover": null, "communityScore": null}, {"id": "tw64", "title": "K (케이)", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628086516, "cover": null, "communityScore": null}, {"id": "tw65", "title": "카케쿠루이", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628087516, "cover": null, "communityScore": null}, {"id": "tw66", "title": "극주부도", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628088516, "cover": null, "communityScore": null}, {"id": "tw68", "title": "Psycho-Pass", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628089516, "cover": null, "communityScore": null}, {"id": "tw69", "title": "금빛 모자이크", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628090516, "cover": null, "communityScore": null}, {"id": "tw70", "title": "은혼", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["개그", "액션"], "ott": [], "reasonTags": [], "addedAt": 1787628091516, "cover": null, "communityScore": null}, {"id": "tw71", "title": "페어리 테일", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628092516, "cover": null, "communityScore": null}, {"id": "tw72", "title": "블루 엑소시스트", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628093516, "cover": null, "communityScore": null}, {"id": "tw73", "title": "리틀 위치 아카데미아", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["학원"], "ott": [], "reasonTags": [], "addedAt": 1787628094516, "cover": null, "communityScore": null}, {"id": "tw74", "title": "마기: 마법의 미로 + 신드바드의 모험", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628095516, "cover": null, "communityScore": null}, {"id": "tw75", "title": "종말에 뭐하세요? 바쁘세요? 구해주실 수 있나요?", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628096516, "cover": null, "communityScore": null}, {"id": "tw76", "title": "단간론파", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["미스터리", "스릴러"], "ott": [], "reasonTags": [], "addedAt": 1787628097516, "cover": null, "communityScore": null}, {"id": "tw77", "title": "어떤 마술의 금서목록", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["액션", "판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628098516, "cover": null, "communityScore": null}, {"id": "tw78", "title": "어떤 과학의 초전자포", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["SF", "액션"], "ott": [], "reasonTags": [], "addedAt": 1787628099516, "cover": null, "communityScore": null}, {"id": "tw79", "title": "소아온", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628100516, "cover": null, "communityScore": null}, {"id": "tw80", "title": "귀칼", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["다크판타지", "액션"], "ott": [], "reasonTags": [], "addedAt": 1787628101516, "cover": null, "communityScore": null}, {"id": "tw81", "title": "장송의프리렌", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["모험", "판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628102516, "cover": null, "communityScore": null}, {"id": "tw82", "title": "창천항로", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628103516, "cover": null, "communityScore": null}, {"id": "tw83", "title": "무직전생", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["이세계", "판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628104516, "cover": null, "communityScore": null}, {"id": "tw84", "title": "신들에게주워진남자", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628105516, "cover": null, "communityScore": null}, {"id": "tw85", "title": "코난", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["미스터리"], "ott": [], "reasonTags": [], "addedAt": 1787628106516, "cover": null, "communityScore": null}, {"id": "tw86", "title": "김전일", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["미스터리"], "ott": [], "reasonTags": [], "addedAt": 1787628107516, "cover": null, "communityScore": null}, {"id": "tw87", "title": "나혼렙?", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["액션", "이세계"], "ott": [], "reasonTags": [], "addedAt": 1787628108516, "cover": null, "communityScore": null}, {"id": "tw88", "title": "데스노트", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["미스터리", "스릴러"], "ott": [], "reasonTags": [], "addedAt": 1787628109516, "cover": null, "communityScore": null}, {"id": "tw89", "title": "페이트 제로", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628110516, "cover": null, "communityScore": null}, {"id": "tw90", "title": "봇치더락", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628111516, "cover": null, "communityScore": null}, {"id": "tw91", "title": "바이올렛 에버가든", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628112516, "cover": null, "communityScore": null}, {"id": "tw93", "title": "클레이모어", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628113516, "cover": null, "communityScore": null}, {"id": "tw94", "title": "메이드인어비스", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628114516, "cover": null, "communityScore": null}, {"id": "tw95", "title": "아케인", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["SF", "드라마"], "ott": [], "reasonTags": [], "addedAt": 1787628115516, "cover": null, "communityScore": null}, {"id": "tw96", "title": "미래일기", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628116516, "cover": null, "communityScore": null}, {"id": "tw97", "title": "페이트 UBW", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628117516, "cover": null, "communityScore": null}, {"id": "tw98", "title": "스파이패밀리", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["액션", "코미디"], "ott": [], "reasonTags": [], "addedAt": 1787628118516, "cover": null, "communityScore": null}, {"id": "tw99", "title": "원펀맨", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["액션", "코미디"], "ott": [], "reasonTags": [], "addedAt": 1787628119516, "cover": null, "communityScore": null}, {"id": "tw101", "title": "카구야님은 고백받고 싶어", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["로맨스", "코미디", "학원"], "ott": [], "reasonTags": [], "addedAt": 1787628120516, "cover": null, "communityScore": null}, {"id": "tw102", "title": "니세코이", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["로맨스", "코미디", "학원"], "ott": [], "reasonTags": [], "addedAt": 1787628121516, "cover": null, "communityScore": null}, {"id": "tw103", "title": "우마무스메", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628122516, "cover": null, "communityScore": null}, {"id": "tw104", "title": "청춘돼지", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["로맨스", "일상"], "ott": [], "reasonTags": [], "addedAt": 1787628123516, "cover": null, "communityScore": null}, {"id": "tw105", "title": "이세계는 스마트폰과 함께", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["이세계", "판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628124516, "cover": null, "communityScore": null}, {"id": "tw106", "title": "일하는세포", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628125516, "cover": null, "communityScore": null}, {"id": "tw107", "title": "종말의 세라프", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628126516, "cover": null, "communityScore": null}, {"id": "tw108", "title": "에이티식스", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["SF", "드라마"], "ott": [], "reasonTags": [], "addedAt": 1787628127516, "cover": null, "communityScore": null}, {"id": "tw109", "title": "괴수8호", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["액션"], "ott": [], "reasonTags": [], "addedAt": 1787628128516, "cover": null, "communityScore": null}, {"id": "tw110", "title": "암살교실", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["코미디", "학원"], "ott": [], "reasonTags": [], "addedAt": 1787628129516, "cover": null, "communityScore": null}, {"id": "tw111", "title": "플라스틱 메모리즈", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["SF", "드라마"], "ott": [], "reasonTags": [], "addedAt": 1787628130516, "cover": null, "communityScore": null}, {"id": "tw112", "title": "제로의 사역마", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628131516, "cover": null, "communityScore": null}, {"id": "tw113", "title": "마왕학원의 부적합자", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["이세계", "판타지", "학원"], "ott": [], "reasonTags": [], "addedAt": 1787628132516, "cover": null, "communityScore": null}, {"id": "tw115", "title": "5등분의 신부", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["로맨스", "코미디", "학원"], "ott": [], "reasonTags": [], "addedAt": 1787628133516, "cover": null, "communityScore": null}, {"id": "tw116", "title": "성검의 블랙스미스", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628134516, "cover": null, "communityScore": null}, {"id": "tw118", "title": "알바뛰는 마왕님", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["코미디", "판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628135516, "cover": null, "communityScore": null}, {"id": "tw119", "title": "익시온 사가", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628136516, "cover": null, "communityScore": null}, {"id": "tw120", "title": "재와 환상의 그림갈", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628137516, "cover": null, "communityScore": null}, {"id": "tw121", "title": "닷핵 사인", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628138516, "cover": null, "communityScore": null}, {"id": "tw122", "title": "십이국기", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628139516, "cover": null, "communityScore": null}, {"id": "tw123", "title": "창단! 짐승의 길", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628140516, "cover": null, "communityScore": null}, {"id": "tw124", "title": "이세계 약국", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["이세계", "판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628141516, "cover": null, "communityScore": null}, {"id": "tw125", "title": "히나마츠리", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["초자연", "코미디"], "ott": [], "reasonTags": [], "addedAt": 1787628142516, "cover": null, "communityScore": null}, {"id": "tw126", "title": "그랑블루", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["일상", "코미디"], "ott": [], "reasonTags": [], "addedAt": 1787628143516, "cover": null, "communityScore": null}, {"id": "tw127", "title": "호오즈키의 냉철", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628144516, "cover": null, "communityScore": null}, {"id": "tw128", "title": "감옥학원", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["코미디", "학원"], "ott": [], "reasonTags": [], "addedAt": 1787628145516, "cover": null, "communityScore": null}, {"id": "tw129", "title": "마법사의 신부", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["로맨스", "판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628146516, "cover": null, "communityScore": null}, {"id": "tw130", "title": "모브 사이코 100", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["액션", "코미디"], "ott": [], "reasonTags": [], "addedAt": 1787628147516, "cover": null, "communityScore": null}, {"id": "w201", "title": "천재 왕자의 적자국가 재생술", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": 2.75, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628148516, "cover": null, "communityScore": null}, {"id": "tw132", "title": "육화의 용사", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628149516, "cover": null, "communityScore": null}, {"id": "tw133", "title": "보석의 나라", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["SF", "판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628150516, "cover": null, "communityScore": null}, {"id": "tw134", "title": "신격의 바하무트 GENESIS", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628151516, "cover": null, "communityScore": null}, {"id": "tw135", "title": "달이 이끄는 이세계 여행", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["이세계", "판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628152516, "cover": null, "communityScore": null}, {"id": "tw136", "title": "흔해빠진 직업으로 세계최강", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["이세계", "판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628153516, "cover": null, "communityScore": null}, {"id": "tw137", "title": "오다 노부나의 야망", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["시대극", "판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628154516, "cover": null, "communityScore": null}, {"id": "tw138", "title": "전국 바사라", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["시대극", "액션"], "ott": [], "reasonTags": [], "addedAt": 1787628155516, "cover": null, "communityScore": null}, {"id": "tw139", "title": "사무라이 디퍼 쿄우", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["시대극", "액션"], "ott": [], "reasonTags": [], "addedAt": 1787628156516, "cover": null, "communityScore": null}, {"id": "tw140", "title": "노부나가 콘체르토", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["SF", "시대극"], "ott": [], "reasonTags": [], "addedAt": 1787628157516, "cover": null, "communityScore": null}, {"id": "tw141", "title": "마법대학 신임교수의 연구생활", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628158516, "cover": null, "communityScore": null}, {"id": "tw142", "title": "대마법사였던것은 다시 대마법사를 꿈꾼다", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628159516, "cover": null, "communityScore": null}, {"id": "tw143", "title": "몸에 좋은 남자", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628160516, "cover": null, "communityScore": null}, {"id": "tw144", "title": "집주인 딸내미", "type": "webtoon", "status": "towatch", "platform": "", "genre": "", "note": "연재중", "rating": null, "comment": "", "favorite": false, "tags": ["19+"], "ott": [], "reasonTags": [], "addedAt": 1787628161516, "cover": null, "communityScore": null}, {"id": "tw145", "title": "동아리", "type": "webtoon", "status": "towatch", "platform": "", "genre": "", "note": "연재중", "rating": null, "comment": "", "favorite": false, "tags": ["19+"], "ott": [], "reasonTags": [], "addedAt": 1787628162516, "cover": null, "communityScore": null}, {"id": "tw146", "title": "건물주 누나", "type": "webtoon", "status": "towatch", "platform": "", "genre": "", "note": "연재중", "rating": null, "comment": "", "favorite": false, "tags": ["19+"], "ott": [], "reasonTags": [], "addedAt": 1787628163516, "cover": null, "communityScore": null}, {"id": "tw147", "title": "멋진 신세계", "type": "webtoon", "status": "towatch", "platform": "", "genre": "", "note": "연재중", "rating": null, "comment": "", "favorite": false, "tags": ["19+"], "ott": [], "reasonTags": [], "addedAt": 1787628164516, "cover": null, "communityScore": null}, {"id": "tw148", "title": "모든 건 합의하에", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["19+"], "ott": [], "reasonTags": [], "addedAt": 1787628165516, "cover": null, "communityScore": null}, {"id": "tw149", "title": "목줄", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["19+"], "ott": [], "reasonTags": [], "addedAt": 1787628166516, "cover": null, "communityScore": null}, {"id": "tw150", "title": "동네누나", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["19+"], "ott": [], "reasonTags": [], "addedAt": 1787628167516, "cover": null, "communityScore": null}, {"id": "tw151", "title": "천박한년", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["19+"], "ott": [], "reasonTags": [], "addedAt": 1787628168516, "cover": null, "communityScore": null}, {"id": "tw152", "title": "여성향 게임 세계는 모브에게 가혹한 세계입니다", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "1기까지만 시청함", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628169516, "cover": null, "communityScore": null}, {"id": "tw153", "title": "푸른상자", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628170516, "cover": null, "communityScore": null}, {"id": "tw154", "title": "촌구석 아저씨 검성이 되다", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628171516, "cover": null, "communityScore": null}, {"id": "tw155", "title": "나는 모든것을 패리한다", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628172516, "cover": null, "communityScore": null}, {"id": "tw156", "title": "낙제현자의 학원무쌍", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["학원"], "ott": [], "reasonTags": [], "addedAt": 1787628173516, "cover": null, "communityScore": null}, {"id": "tw157", "title": "포션빨로 연명합니다", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628174516, "cover": null, "communityScore": null}, {"id": "tw158", "title": "이상한전생", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["이세계", "판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628175516, "cover": null, "communityScore": null}, {"id": "tw159", "title": "아라포 남자의 이세계 총판", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["이세계", "판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628176516, "cover": null, "communityScore": null}, {"id": "tw160", "title": "노후를 대비해 금화 팔만개를 모읍니다", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628177516, "cover": null, "communityScore": null}, {"id": "tw161", "title": "던전관리인", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628178516, "cover": null, "communityScore": null}, {"id": "tw163", "title": "사신표월", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["무협"], "ott": [], "reasonTags": [], "addedAt": 1787628179516, "cover": null, "communityScore": null}, {"id": "tw164", "title": "장씨세가 호위무사", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["무협"], "ott": [], "reasonTags": [], "addedAt": 1787628180516, "cover": null, "communityScore": null}, {"id": "tw165", "title": "리턴서바이벌", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628181516, "cover": null, "communityScore": null}, {"id": "tw166", "title": "아스란 영웅전", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628182516, "cover": null, "communityScore": null}, {"id": "tw167", "title": "오피스누나이야기", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628183516, "cover": null, "communityScore": null}, {"id": "tw168", "title": "먹귀싸", "type": "anime", "status": "towatch", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628184516, "cover": null, "communityScore": null}, {"id": "w169", "title": "던만추", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": 5, "comment": "", "favorite": false, "tags": ["이세계", "판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628185516, "cover": null, "communityScore": null}, {"id": "w170", "title": "전생슬", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": 5, "comment": "", "favorite": false, "tags": ["이세계", "판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628186516, "cover": null, "communityScore": null}, {"id": "w171", "title": "이 멋진 세계에 축복을", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": 5, "comment": "", "favorite": false, "tags": ["이세계", "코미디"], "ott": [], "reasonTags": [], "addedAt": 1787628187516, "cover": null, "communityScore": null}, {"id": "w172", "title": "이세계 삼촌", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": 5, "comment": "", "favorite": false, "tags": ["이세계", "코미디", "판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628188516, "cover": null, "communityScore": null}, {"id": "w173", "title": "악마에 입문했습니다! 이루마 군", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": 4.5, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628189516, "cover": null, "communityScore": null}, {"id": "w174", "title": "현실주의 용사의 왕국 재건기", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": 3.5, "comment": "", "favorite": false, "tags": ["판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628190516, "cover": null, "communityScore": null}, {"id": "w175", "title": "아픈 건 싫으니까 방어력에 올인하려고 합니다", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": 3.5, "comment": "재평가: B", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628191516, "cover": null, "communityScore": null}, {"id": "w176", "title": "방패용사성공담", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": 3.5, "comment": "재평가: B", "favorite": false, "tags": ["판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628192516, "cover": null, "communityScore": null}, {"id": "w177", "title": "전생했더니 검이었습니다", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": 4.5, "comment": "", "favorite": false, "tags": ["이세계", "판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628193516, "cover": null, "communityScore": null}, {"id": "w178", "title": "로그 호라이즌", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": 4, "comment": "재평가: A", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628194516, "cover": null, "communityScore": null}, {"id": "w179", "title": "파티피플공명", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": 4.5, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628195516, "cover": null, "communityScore": null}, {"id": "w180", "title": "Re제로", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": 4.5, "comment": "", "favorite": false, "tags": ["다크판타지", "이세계"], "ott": [], "reasonTags": [], "addedAt": 1787628196516, "cover": null, "communityScore": null}, {"id": "w181", "title": "전생 귀족, 감정 스킬로 성공하다", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": 4, "comment": "", "favorite": false, "tags": ["이세계", "판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628197516, "cover": null, "communityScore": null}, {"id": "w182", "title": "이세계 유유자적 농가", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": 4.5, "comment": "", "favorite": false, "tags": ["이세계", "판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628198516, "cover": null, "communityScore": null}, {"id": "w183", "title": "일곱개의 대죄", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": 5, "comment": "재평가: S", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628199516, "cover": null, "communityScore": null}, {"id": "w184", "title": "터무니없는 스킬로 이세계 방랑 밥", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": 4, "comment": "", "favorite": false, "tags": ["이세계", "판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628200516, "cover": null, "communityScore": null}, {"id": "w185", "title": "오버로드", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": 4, "comment": "", "favorite": false, "tags": ["다크판타지", "이세계"], "ott": [], "reasonTags": [], "addedAt": 1787628201516, "cover": null, "communityScore": null}, {"id": "w186", "title": "이세계 식당", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": 3, "comment": "", "favorite": false, "tags": ["이세계", "판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628202516, "cover": null, "communityScore": null}, {"id": "w187", "title": "식극의소마", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": 3, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628203516, "cover": null, "communityScore": null}, {"id": "w188", "title": "프린세스 커넥트:리다이브", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": 2.25, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628204516, "cover": null, "communityScore": null}, {"id": "w189", "title": "트리니티 세븐", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": 2.25, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628205516, "cover": null, "communityScore": null}, {"id": "w190", "title": "고블린 슬레이어", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": 3, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628206516, "cover": null, "communityScore": null}, {"id": "w191", "title": "치트 약사의 슬로우라이프", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": 2.25, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628207516, "cover": null, "communityScore": null}, {"id": "w192", "title": "노 게임 노 라이프", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": 3, "comment": "재평가: C", "favorite": false, "tags": ["이세계", "판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628208516, "cover": null, "communityScore": null}, {"id": "w193", "title": "토라도라!", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": 3, "comment": "재평가: C", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628209516, "cover": null, "communityScore": null}, {"id": "w194", "title": "Endro~!", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": 2.25, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628210516, "cover": null, "communityScore": null}, {"id": "w195", "title": "세토의 신부", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": 2.25, "comment": "", "favorite": false, "tags": ["로맨스"], "ott": [], "reasonTags": [], "addedAt": 1787628211516, "cover": null, "communityScore": null}, {"id": "w196", "title": "이세계의 성기사 이야기", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": 3, "comment": "재평가: C", "favorite": false, "tags": ["이세계", "판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628212516, "cover": null, "communityScore": null}, {"id": "w197", "title": "메이드래곤", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": 2.25, "comment": "재평가: C", "favorite": false, "tags": ["일상", "판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628213516, "cover": null, "communityScore": null}, {"id": "w198", "title": "이 용사가 ZZANG센 주제에 너무 신중하다", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": 3, "comment": "재평가: C", "favorite": false, "tags": ["판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628214516, "cover": null, "communityScore": null}, {"id": "w199", "title": "이세계 미궁에서 하렘을", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": 2.25, "comment": "재평가: C", "favorite": false, "tags": ["이세계", "판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628215516, "cover": null, "communityScore": null}, {"id": "w200", "title": "나의 히어로 아카데미아", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": 5, "comment": "", "favorite": false, "tags": ["액션", "학원"], "ott": [], "reasonTags": [], "addedAt": 1787628216516, "cover": null, "communityScore": null}, {"id": "w202", "title": "여고생 드래곤", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628217516, "cover": null, "communityScore": null}, {"id": "w203", "title": "주인공이 빌런임", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628218516, "cover": null, "communityScore": null}, {"id": "w204", "title": "던전 속 사정", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628219516, "cover": null, "communityScore": null}, {"id": "w205", "title": "말단 병사에서 군주까지", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": [], "ott": [], "reasonTags": [], "addedAt": 1787628220516, "cover": null, "communityScore": null}, {"id": "w206", "title": "북검전기", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["무협"], "ott": [], "reasonTags": [], "addedAt": 1787628221516, "cover": null, "communityScore": null}, {"id": "w207", "title": "귀환자의 마법은 특별해야 합니다", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628222516, "cover": null, "communityScore": null}, {"id": "w209", "title": "천애협로", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["무협"], "ott": [], "reasonTags": [], "addedAt": 1787628223516, "cover": null, "communityScore": null}, {"id": "w210", "title": "화산전생", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["무협", "이세계", "판타지"], "ott": [], "reasonTags": [], "addedAt": 1787628224516, "cover": null, "communityScore": null}, {"id": "w211", "title": "화산귀환 152화 2부 완", "type": "anime", "status": "watched", "platform": "", "genre": "", "note": "", "rating": null, "comment": "", "favorite": false, "tags": ["무협"], "ott": [], "reasonTags": [], "addedAt": 1787628225516, "cover": null, "communityScore": null}]</script>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(function(){
+  const SUPABASE_URL = 'https://swxucbdzbhopgjmvykrj.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_67WIpKhHfPQWrZQlOqOKYg_XtZ7HwAN';
+  const ROW_ID = '00000000-0000-0000-0000-000000000001';
+  const TABLE = 'dabom_items';
+
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const TAG_VOCAB = ['이세계','판타지','중세','학원','로맨스','액션','코미디','드라마','스릴러','미스터리','호러','일상','SF','스포츠','무협','열혈','다크판타지','19+','하렘','개그','모험','로봇','시대극','초자연'];
+  const OTT_VOCAB = ['라프텔','왓챠','티빙','웨이브','넷플릭스','디즈니+','쿠팡플레이','크런치롤','U+모바일tv','유튜브','네이버웹툰','카카오웹툰','카카오페이지','리디'];
+  const REASON_VOCAB = ['취향 안 맞음','전개가 지루함','작화/그림체','잔인함/폭력성','완결 대기 중','원작과 다름','시간 부족','기타'];
+  const TAG_ICON = {'이세계':'🌌','판타지':'⚔️','중세':'🏰','학원':'🏫','로맨스':'💗','액션':'💥','코미디':'😄','드라마':'🎭','스릴러':'🔪','미스터리':'🔍','호러':'👻','일상':'☕','SF':'🚀','스포츠':'🏅','무협':'🐉','열혈':'🔥','다크판타지':'🖤','19+':'🔞','하렘':'💠','개그':'🤪','모험':'🧭','로봇':'🤖','시대극':'🏯','초자연':'👁️'};
+  const GENRE_MAP = {'Action':'액션','Adventure':'모험','Comedy':'코미디','Drama':'드라마','Fantasy':'판타지','Horror':'호러','Mecha':'로봇','Mystery':'미스터리','Romance':'로맨스','Sci-Fi':'SF','Slice of Life':'일상','Sports':'스포츠','Supernatural':'초자연','Thriller':'스릴러','Ecchi':'19+','Psychological':'스릴러'};
+
+  let items = [];
+  let currentTab = 'towatch';
+  let searchQuery = '';
+  let typeFilter = 'all';
+  let sortMode = 'favorite';
+  let activeTagFilters = new Set();
+  let tagFilterOpen = false;
+  let syncState = 'pending';
+
+  const grid = document.getElementById('db-grid');
+  const tabbarEl = document.getElementById('db-tabbar');
+  const statsEl = document.getElementById('db-stats');
+  const sortEl = document.getElementById('db-sort');
+  const searchEl = document.getElementById('db-search');
+  const typeEl = document.getElementById('db-typefilter');
+  const tagFilterEl = document.getElementById('db-tagfilter');
+  const modalRoot = document.getElementById('db-modal-root');
+  const syncBanner = document.getElementById('db-syncbanner');
+
+  function uid(){ return 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+  function updateSyncUI(){
+    if(syncState==='fail'){
+      syncBanner.className = 'db-syncbanner show';
+      syncBanner.textContent = '⚠ 서버와 연결이 안 되고 있어요. 인터넷 연결을 확인해주세요. 방금 한 변경사항이 저장 안 됐을 수 있어요.';
+    }else{
+      syncBanner.className = 'db-syncbanner';
+    }
+    render();
+  }
+
+  async function loadItems(){
+    try{
+      const { data, error } = await sb.from(TABLE).select('*').eq('id', ROW_ID).maybeSingle();
+      if(error) throw error;
+      if(data){
+        items = data.data;
+        syncState = 'ok';
+      }else{
+        items = JSON.parse(document.getElementById('db-seed').textContent);
+        const { error: insErr } = await sb.from(TABLE).insert({ id: ROW_ID, data: items });
+        if(insErr) throw insErr;
+        syncState = 'ok';
+      }
+    }catch(e){
+      console.error('load failed', e);
+      items = JSON.parse(document.getElementById('db-seed').textContent);
+      syncState = 'fail';
+    }
+    updateSyncUI();
+  }
+
+  async function persist(){
+    syncState = 'pending'; render();
+    try{
+      const { error } = await sb.from(TABLE).update({ data: items, updated_at: new Date().toISOString() }).eq('id', ROW_ID);
+      if(error) throw error;
+      syncState = 'ok';
+    }catch(e){
+      console.error('save failed', e);
+      syncState = 'fail';
+    }
+    updateSyncUI();
+  }
+
+  function subscribeRealtime(){
+    sb.channel('dabom-sync')
+      .on('postgres_changes', { event:'UPDATE', schema:'public', table:TABLE, filter:`id=eq.${ROW_ID}` }, (payload)=>{
+        if(payload.new && payload.new.data){
+          items = payload.new.data;
+          syncState = 'ok';
+          render();
+        }
+      })
+      .subscribe();
+  }
+
+  function hueForTitle(title){
+    let h = 0;
+    for(let i=0;i<title.length;i++){ h = (h*31 + title.charCodeAt(i)) % 360; }
+    return h;
+  }
+  function primaryIcon(item){
+    if(item.tags && item.tags.length){ for(const t of item.tags){ if(TAG_ICON[t]) return TAG_ICON[t]; } }
+    return item.type === 'webtoon' ? '📖' : '🎬';
+  }
+  function starString(rating){
+    if(rating === null || rating === undefined) return '미평가';
+    const full = Math.floor(rating);
+    const half = rating - full >= 0.5;
+    let s = '★'.repeat(full);
+    if(half) s += '½';
+    s += '☆'.repeat(Math.max(0,5-full-(half?1:0)));
+    return s + ' ' + rating.toFixed(1);
+  }
+  function escapeHtml(s){
+    return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function renderTabbar(){
+    const c = {
+      towatch: items.filter(i=>i.status==='towatch').length,
+      watched: items.filter(i=>i.status==='watched').length,
+      dropped: items.filter(i=>i.status==='dropped').length,
+    };
+    tabbarEl.innerHTML = `
+      <button class="db-tabbtn tab-towatch ${currentTab==='towatch'?'active':''}" data-tab="towatch">안 본 것 <span class="n">${c.towatch}</span></button>
+      <button class="db-tabbtn tab-watched ${currentTab==='watched'?'active':''}" data-tab="watched">다 본 것 <span class="n">${c.watched}</span></button>
+      <button class="db-tabbtn tab-dropped ${currentTab==='dropped'?'active':''}" data-tab="dropped">중도하차 <span class="n">${c.dropped}</span></button>
+    `;
+    tabbarEl.querySelectorAll('.db-tabbtn').forEach(b=>{
+      b.onclick = ()=>{ currentTab=b.dataset.tab; updateSortOptions(); render(); };
+    });
+  }
+
+  function updateSortOptions(){
+    let opts;
+    if(currentTab==='towatch') opts = [['favorite','즐겨찾기 우선'],['name','이름순'],['recent','최신 추가순']];
+    else if(currentTab==='watched') opts = [['rating_desc','평점 높은순'],['rating_asc','평점 낮은순'],['name','이름순'],['recent','최신 추가순']];
+    else opts = [['recent','최신순'],['name','이름순']];
+    sortEl.innerHTML = opts.map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
+    if(!opts.find(o=>o[0]===sortMode)) sortMode = opts[0][0];
+    sortEl.value = sortMode;
+  }
+
+  function renderTagFilter(){
+    tagFilterEl.innerHTML = `<span class="db-tagchip clear" id="tf-clear">전체보기</span>` +
+      TAG_VOCAB.map(t=>`<span class="db-tagchip ${activeTagFilters.has(t)?'on':''}" data-tag="${t}">${TAG_ICON[t]||''} ${t}</span>`).join('');
+    document.getElementById('tf-clear').onclick = ()=>{ activeTagFilters.clear(); render(); };
+    tagFilterEl.querySelectorAll('[data-tag]').forEach(el=>{
+      el.onclick = ()=>{
+        const t = el.dataset.tag;
+        if(activeTagFilters.has(t)) activeTagFilters.delete(t); else activeTagFilters.add(t);
+        render();
+      };
+    });
+  }
+
+  function getFiltered(){
+    let list = items.filter(i=>i.status===currentTab);
+    if(typeFilter!=='all') list = list.filter(i=>i.type===typeFilter);
+    if(activeTagFilters.size) list = list.filter(i=> (i.tags||[]).some(t=>activeTagFilters.has(t)));
+    if(searchQuery.trim()){
+      const q = searchQuery.trim().toLowerCase();
+      list = list.filter(i=>i.title.toLowerCase().includes(q));
+    }
+    list = list.slice();
+    if(sortMode==='favorite') list.sort((a,b)=>(b.favorite?1:0)-(a.favorite?1:0));
+    else if(sortMode==='name') list.sort((a,b)=>a.title.localeCompare(b.title,'ko'));
+    else if(sortMode==='recent') list.sort((a,b)=>(b.addedAt||0)-(a.addedAt||0));
+    else if(sortMode==='rating_desc') list.sort((a,b)=>(b.rating||0)-(a.rating||0));
+    else if(sortMode==='rating_asc') list.sort((a,b)=>(a.rating||0)-(b.rating||0));
+    return list;
+  }
+
+  function render(){
+    renderTabbar();
+    renderTagFilter();
+    const list = getFiltered();
+    const total = items.length;
+    const watchedN = items.filter(i=>i.status==='watched').length;
+    statsEl.innerHTML = `<span class="db-syncdot ${syncState}" title="${syncState==='ok'?'동기화됨':syncState==='fail'?'연결 실패':'동기화 중'}"></span>전체 <b>${total}</b> · <b>${total?Math.round(watchedN/total*100):0}%</b>`;
+
+    if(list.length===0){
+      grid.innerHTML = `<div class="db-empty">표시할 작품이 없어요.</div>`;
+      return;
+    }
+    grid.innerHTML = '';
+    list.forEach(item=>{
+      const card = document.createElement('div');
+      card.className = 'db-card';
+      const hue = hueForTitle(item.title);
+      const icon = primaryIcon(item);
+      const shownTags = (item.tags||[]).slice(0,2);
+      const thumbInner = item.cover
+        ? `<img src="${escapeHtml(item.cover)}" alt="" loading="lazy" />`
+        : `<div class="glow"></div><span class="icon">${icon}</span>`;
+      card.innerHTML = `
+        <div class="db-thumb" style="${item.cover?'':`background:linear-gradient(150deg, hsl(${hue},50%,26%), hsl(${(hue+50)%360},55%,15%));`}">
+          ${thumbInner}
+          <span class="kindtag">${item.type==='webtoon'?'웹툰':'애니'}</span>
+          <button class="db-fav ${item.favorite?'on':''}" title="즐겨찾기">★</button>
+        </div>
+        <div class="db-info">
+          <div class="db-name">${escapeHtml(item.title)}</div>
+          ${shownTags.length?`<div class="db-tagrow">${shownTags.map(t=>`<span class="db-mtag">${t}</span>`).join('')}</div>`:''}
+          ${item.status==='watched'?`<div class="db-stars">${starString(item.rating)}</div>`:''}
+          ${item.communityScore?`<div class="db-cscore">세간 ${item.communityScore.toFixed(1)}</div>`:''}
+          ${item.status==='dropped'?`<div class="db-reason">${(item.reasonTags||[]).join(', ')||'사유 미기재'}</div>`:''}
+          ${item.note?`<div class="db-note">${escapeHtml(item.note)}</div>`:''}
+        </div>
+      `;
+      card.querySelector('.db-fav').onclick = (e)=>{ e.stopPropagation(); item.favorite=!item.favorite; persist(); render(); };
+      card.onclick = ()=> openDetailModal(item.id);
+      grid.appendChild(card);
+    });
+  }
+
+  function closeModal(){ modalRoot.innerHTML = ''; }
+
+  function tagPillsHtml(selectedArr, vocab, cls){
+    return vocab.map(v=>{
+      const icon = cls==='' ? (TAG_ICON[v]||'') : '';
+      return `<span class="db-pill ${cls} ${selectedArr.includes(v)?'sel':''}" data-v="${escapeHtml(v)}">${icon?icon+' ':''}${escapeHtml(v)}</span>`;
+    }).join('');
+  }
+
+  async function searchAniList(q){
+    const query = `query ($search: String) { Page(perPage:8){ media(search:$search, type: ANIME, sort: SEARCH_MATCH) { id title{romaji english} coverImage{large medium} format seasonYear genres averageScore } } }`;
+    const res = await fetch('https://graphql.anilist.co', {
+      method:'POST',
+      headers:{'Content-Type':'application/json', 'Accept':'application/json'},
+      body: JSON.stringify({ query, variables:{ search:q } })
+    });
+    if(!res.ok) throw new Error('anilist http ' + res.status);
+    const json = await res.json();
+    return (json.data && json.data.Page && json.data.Page.media) || [];
+  }
+  function mapAniListGenres(genres){
+    const out = new Set();
+    (genres||[]).forEach(g=>{ if(GENRE_MAP[g]) out.add(GENRE_MAP[g]); });
+    return Array.from(out);
+  }
+
+  function openDetailModal(id){
+    const item = items.find(i=>i.id===id);
+    if(!item) return;
+    const isWatched = item.status==='watched';
+    const isDropped = item.status==='dropped';
+    let workingTags = (item.tags||[]).slice();
+    let workingOtt = (item.ott||[]).slice();
+    let workingReasons = (item.reasonTags||[]).slice();
+
+    modalRoot.innerHTML = `
+      <div class="db-overlay" id="db-ov">
+        <div class="db-modal">
+          <button class="close" id="db-close">✕</button>
+          <h3>${escapeHtml(item.title)}</h3>
+          <div class="db-tagrow" style="margin-top:6px;">
+            <span class="db-mtag">${item.type==='webtoon'?'웹툰':'애니'}</span>
+            ${item.communityScore?`<span class="db-mtag">세간 ${item.communityScore.toFixed(1)}</span>`:''}
+          </div>
+
+          ${item.type==='anime' ? `<button class="db-linklike" id="relink-btn">🔍 실제 작품 정보 다시 찾기</button>
+          <div id="relink-area"></div>` : ''}
+
+          ${!isWatched ? `
+            <div class="db-field">
+              <label>진행 메모 (선택)</label>
+              <input type="text" id="f-note" value="${escapeHtml(item.note||'')}" placeholder="예: 3기 EP5 도중" />
+            </div>
+          ` : ''}
+
+          <div class="db-field">
+            <label>태그</label>
+            <div class="db-chiprow" id="tag-pills">${tagPillsHtml(workingTags, TAG_VOCAB, '')}</div>
+          </div>
+
+          <div class="db-field">
+            <label>어디서 볼 수 있나요</label>
+            <div class="db-chiprow" id="ott-pills">${tagPillsHtml(workingOtt, OTT_VOCAB, 'ott')}</div>
+            <input type="text" id="f-ott-custom" style="margin-top:8px;" placeholder="직접 입력 후 Enter" />
+          </div>
+
+          ${isDropped ? `
+            <div class="db-field">
+              <label>중도하차 사유</label>
+              <div class="db-chiprow" id="reason-pills">${tagPillsHtml(workingReasons, REASON_VOCAB, 'reason')}</div>
+            </div>
+          ` : ''}
+
+          ${isWatched ? `
+            <div class="db-field">
+              <label>내 평점</label>
+              <div class="db-starrow">
+                <input type="range" id="f-rating" min="0" max="5" step="0.5" value="${item.rating ?? 0}" />
+                <span class="val" id="f-rating-val">${(item.rating??0).toFixed(1)}</span>
+              </div>
+            </div>
+          ` : ''}
+
+          <div class="db-field">
+            <label>코멘트</label>
+            <textarea id="f-comment" placeholder="간단한 감상평...">${escapeHtml(item.comment||'')}</textarea>
+          </div>
+
+          <div class="db-actions">
+            ${!isWatched && !isDropped ? `<button class="db-btn teal" id="mark-watched">다 봤어요 ✓</button>` : ''}
+            ${!isWatched && !isDropped ? `<button class="db-btn danger" id="mark-dropped">중도하차</button>` : ''}
+            ${(isWatched||isDropped) ? `<button class="db-btn ghost" id="mark-unwatch">안 본 것으로</button>` : ''}
+          </div>
+          <div class="db-actions">
+            <button class="db-btn primary" id="save-only">저장</button>
+            <button class="db-btn danger" id="delete-item">삭제</button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.getElementById('db-close').onclick = closeModal;
+    document.getElementById('db-ov').onclick = (e)=>{ if(e.target.id==='db-ov') closeModal(); };
+
+    const relinkBtn = document.getElementById('relink-btn');
+    if(relinkBtn){
+      relinkBtn.onclick = async ()=>{
+        const area = document.getElementById('relink-area');
+        area.innerHTML = `<div class="db-searchstatus">검색 중...</div>`;
+        try{
+          const results = await searchAniList(item.title);
+          if(!results.length){ area.innerHTML = `<div class="db-searchstatus">일치하는 작품을 찾지 못했어요.</div>`; return; }
+          area.innerHTML = `<div class="db-searchresults">${results.map((r,idx)=>`
+            <div class="db-sr-item" data-idx="${idx}">
+              <img src="${r.coverImage?.medium||''}" />
+              <div class="meta">
+                <div class="t">${escapeHtml(r.title.romaji||r.title.english||'')}</div>
+                <div class="s">${r.format||''} · ${r.seasonYear||'?'} ${r.averageScore?'· 세간 '+(r.averageScore/10).toFixed(1):''}</div>
+              </div>
+            </div>`).join('')}</div>`;
+          area.querySelectorAll('.db-sr-item').forEach(el=>{
+            el.onclick = ()=>{
+              const r = results[parseInt(el.dataset.idx)];
+              item.title = r.title.romaji || r.title.english || item.title;
+              item.cover = r.coverImage?.large || r.coverImage?.medium || null;
+              item.communityScore = r.averageScore ? r.averageScore/10 : null;
+              const mapped = mapAniListGenres(r.genres);
+              mapped.forEach(t=>{ if(!workingTags.includes(t)) workingTags.push(t); });
+              document.getElementById('tag-pills').innerHTML = tagPillsHtml(workingTags, TAG_VOCAB, '');
+              bindTagPills();
+              area.innerHTML = `<div class="db-searchstatus">✓ "${escapeHtml(item.title)}" 정보로 갱신됨 (저장을 눌러 확정하세요)</div>`;
+              document.querySelector('.db-modal h3').textContent = item.title;
+            };
+          });
+        }catch(e){
+          area.innerHTML = `<div class="db-searchstatus">검색 실패 (네트워크 문제일 수 있어요). 수동으로 태그만 수정해주세요.</div>`;
+        }
+      };
+    }
+
+    function bindTagPills(){
+      document.getElementById('tag-pills').querySelectorAll('.db-pill').forEach(p=>{
+        p.onclick = ()=>{
+          const v = p.dataset.v;
+          if(workingTags.includes(v)) workingTags = workingTags.filter(x=>x!==v); else workingTags.push(v);
+          p.classList.toggle('sel');
+        };
+      });
+    }
+    bindTagPills();
+    document.getElementById('ott-pills').querySelectorAll('.db-pill').forEach(p=>{
+      p.onclick = ()=>{
+        const v = p.dataset.v;
+        if(workingOtt.includes(v)) workingOtt = workingOtt.filter(x=>x!==v); else workingOtt.push(v);
+        p.classList.toggle('sel');
+      };
+    });
+    const ottCustom = document.getElementById('f-ott-custom');
+    ottCustom.onkeydown = (e)=>{
+      if(e.key==='Enter' && ottCustom.value.trim()){
+        e.preventDefault();
+        workingOtt.push(ottCustom.value.trim());
+        ottCustom.value='';
+      }
+    };
+    const reasonPillsEl = document.getElementById('reason-pills');
+    if(reasonPillsEl){
+      reasonPillsEl.querySelectorAll('.db-pill').forEach(p=>{
+        p.onclick = ()=>{
+          const v = p.dataset.v;
+          if(workingReasons.includes(v)) workingReasons = workingReasons.filter(x=>x!==v); else workingReasons.push(v);
+          p.classList.toggle('sel');
+        };
+      });
+    }
+    const ratingInput = document.getElementById('f-rating');
+    if(ratingInput){
+      const ratingVal = document.getElementById('f-rating-val');
+      ratingInput.oninput = ()=>{ ratingVal.textContent = parseFloat(ratingInput.value).toFixed(1); };
+    }
+
+    function collect(){
+      item.tags = workingTags;
+      item.ott = workingOtt;
+      item.reasonTags = workingReasons;
+      item.comment = document.getElementById('f-comment').value;
+      const noteInput = document.getElementById('f-note');
+      if(noteInput) item.note = noteInput.value;
+      if(ratingInput) item.rating = parseFloat(ratingInput.value);
+    }
+
+    const mw = document.getElementById('mark-watched');
+    if(mw) mw.onclick = ()=>{ collect(); item.status='watched'; item.note=''; if(item.rating==null) item.rating=0; persist(); closeModal(); render(); };
+    const md = document.getElementById('mark-dropped');
+    if(md) md.onclick = ()=>{ collect(); item.status='dropped'; persist(); closeModal(); render(); };
+    const mu = document.getElementById('mark-unwatch');
+    if(mu) mu.onclick = ()=>{ collect(); item.status='towatch'; persist(); closeModal(); render(); };
+    document.getElementById('save-only').onclick = ()=>{ collect(); persist(); closeModal(); render(); };
+    document.getElementById('delete-item').onclick = ()=>{ items = items.filter(i=>i.id!==item.id); persist(); closeModal(); render(); };
+  }
+
+  function openAddModal(){
+    let selType = 'anime';
+    let workingTags = [];
+    let workingOtt = [];
+    let pickedCover = null;
+    let pickedScore = null;
+
+    modalRoot.innerHTML = `
+      <div class="db-overlay" id="db-ov">
+        <div class="db-modal">
+          <button class="close" id="db-close">✕</button>
+          <h3>새 작품 추가</h3>
+          <div class="db-field">
+            <label>종류</label>
+            <div class="db-typerow">
+              <button class="sel" data-type="anime">🎬 애니메이션</button>
+              <button data-type="webtoon">📖 웹툰</button>
+            </div>
+          </div>
+          <div class="db-field" id="anime-search-field">
+            <label>애니 제목 검색 (AniList 실시간 검색)</label>
+            <input type="text" id="a-search" placeholder="제목을 입력하면 자동 검색돼요" />
+            <div id="a-search-results"></div>
+          </div>
+          <div class="db-field">
+            <label>제목 (검색 결과가 없으면 직접 입력)</label>
+            <input type="text" id="a-title" placeholder="작품 제목" />
+          </div>
+          <div class="db-field">
+            <label>태그</label>
+            <div class="db-chiprow" id="a-tags">${tagPillsHtml([], TAG_VOCAB, '')}</div>
+          </div>
+          <div class="db-field">
+            <label>어디서 볼 수 있나요 (선택)</label>
+            <div class="db-chiprow" id="a-ott">${tagPillsHtml([], OTT_VOCAB, 'ott')}</div>
+          </div>
+          <div class="db-actions">
+            <button class="db-btn primary" id="a-submit">안 본 것에 추가</button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.getElementById('db-close').onclick = closeModal;
+    document.getElementById('db-ov').onclick = (e)=>{ if(e.target.id==='db-ov') closeModal(); };
+    modalRoot.querySelectorAll('.db-typerow button').forEach(b=>{
+      b.onclick = ()=>{
+        selType=b.dataset.type;
+        modalRoot.querySelectorAll('.db-typerow button').forEach(x=>x.classList.remove('sel'));
+        b.classList.add('sel');
+        document.getElementById('anime-search-field').style.display = selType==='anime' ? 'block' : 'none';
+      };
+    });
+    document.getElementById('a-tags').querySelectorAll('.db-pill').forEach(p=>{
+      p.onclick = ()=>{ const v=p.dataset.v; if(workingTags.includes(v)) workingTags=workingTags.filter(x=>x!==v); else workingTags.push(v); p.classList.toggle('sel'); };
+    });
+    document.getElementById('a-ott').querySelectorAll('.db-pill').forEach(p=>{
+      p.onclick = ()=>{ const v=p.dataset.v; if(workingOtt.includes(v)) workingOtt=workingOtt.filter(x=>x!==v); else workingOtt.push(v); p.classList.toggle('sel'); };
+    });
+
+    let debounceT = null;
+    const searchInput = document.getElementById('a-search');
+    const resultsEl = document.getElementById('a-search-results');
+    searchInput.oninput = ()=>{
+      clearTimeout(debounceT);
+      const q = searchInput.value.trim();
+      if(q.length < 2){ resultsEl.innerHTML=''; return; }
+      debounceT = setTimeout(async ()=>{
+        resultsEl.innerHTML = `<div class="db-searchstatus">검색 중...</div>`;
+        try{
+          const results = await searchAniList(q);
+          if(!results.length){ resultsEl.innerHTML = `<div class="db-searchstatus">검색 결과 없음. 아래 제목란에 직접 입력해주세요.</div>`; return; }
+          resultsEl.innerHTML = `<div class="db-searchresults">${results.map((r,idx)=>`
+            <div class="db-sr-item" data-idx="${idx}">
+              <img src="${r.coverImage?.medium||''}" />
+              <div class="meta">
+                <div class="t">${escapeHtml(r.title.romaji||r.title.english||'')}</div>
+                <div class="s">${r.format||''} · ${r.seasonYear||'?'} ${r.averageScore?'· 세간 '+(r.averageScore/10).toFixed(1):''}</div>
+              </div>
+            </div>`).join('')}</div>`;
+          resultsEl.querySelectorAll('.db-sr-item').forEach(el=>{
+            el.onclick = ()=>{
+              const r = results[parseInt(el.dataset.idx)];
+              document.getElementById('a-title').value = r.title.romaji || r.title.english || '';
+              pickedCover = r.coverImage?.large || r.coverImage?.medium || null;
+              pickedScore = r.averageScore ? r.averageScore/10 : null;
+              const mapped = mapAniListGenres(r.genres);
+              mapped.forEach(t=>{ if(!workingTags.includes(t)) workingTags.push(t); });
+              document.getElementById('a-tags').innerHTML = tagPillsHtml(workingTags, TAG_VOCAB, '');
+              document.getElementById('a-tags').querySelectorAll('.db-pill').forEach(p=>{
+                p.onclick = ()=>{ const v=p.dataset.v; if(workingTags.includes(v)) workingTags=workingTags.filter(x=>x!==v); else workingTags.push(v); p.classList.toggle('sel'); };
+              });
+              resultsEl.innerHTML = `<div class="db-searchstatus">✓ 선택됨 — 실제 표지·정보 자동 반영</div>`;
+            };
+          });
+        }catch(e){
+          resultsEl.innerHTML = `<div class="db-searchstatus">실시간 검색을 사용할 수 없어요. 아래에 직접 입력해주세요.</div>`;
+        }
+      }, 450);
+    };
+
+    document.getElementById('a-submit').onclick = ()=>{
+      const title = document.getElementById('a-title').value.trim();
+      if(!title){ document.getElementById('a-title').focus(); return; }
+      items.push({
+        id: uid(), title, type: selType, status:'towatch',
+        platform:'', genre:'', note:'', rating:null, comment:'',
+        favorite:false, tags:workingTags, ott:workingOtt, reasonTags:[],
+        cover: selType==='anime' ? pickedCover : null,
+        communityScore: selType==='anime' ? pickedScore : null,
+        addedAt: Date.now()
+      });
+      persist(); closeModal(); currentTab='towatch'; render();
+    };
+  }
+
+  document.getElementById('db-add-btn').onclick = openAddModal;
+  document.getElementById('db-tagtoggle').onclick = ()=>{
+    tagFilterOpen = !tagFilterOpen;
+    tagFilterEl.classList.toggle('open', tagFilterOpen);
+  };
+  searchEl.oninput = ()=>{ searchQuery = searchEl.value; render(); };
+  typeEl.onchange = ()=>{ typeFilter = typeEl.value; render(); };
+  sortEl.onchange = ()=>{ sortMode = sortEl.value; render(); };
+
+  (async function init(){
+    await loadItems();
+    updateSortOptions();
+    render();
+    subscribeRealtime();
+  })();
+})();
+</script>
+</body>
+</html>
