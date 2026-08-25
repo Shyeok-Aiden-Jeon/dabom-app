@@ -205,6 +205,31 @@
   const REASON_VOCAB = ['취향 안 맞음','전개가 지루함','작화/그림체','잔인함/폭력성','완결 대기 중','원작과 다름','시간 부족','기타'];
   const TAG_ICON = {'이세계':'🌌','판타지':'⚔️','중세':'🏰','학원':'🏫','로맨스':'💗','액션':'💥','코미디':'😄','드라마':'🎭','스릴러':'🔪','미스터리':'🔍','호러':'👻','일상':'☕','SF':'🚀','스포츠':'🏅','무협':'🐉','열혈':'🔥','다크판타지':'🖤','19+':'🔞','하렘':'💠','개그':'🤪','모험':'🧭','로봇':'🤖','시대극':'🏯','초자연':'👁️'};
   const GENRE_MAP = {'Action':'액션','Adventure':'모험','Comedy':'코미디','Drama':'드라마','Fantasy':'판타지','Horror':'호러','Mecha':'로봇','Mystery':'미스터리','Romance':'로맨스','Sci-Fi':'SF','Slice of Life':'일상','Sports':'스포츠','Supernatural':'초자연','Thriller':'스릴러','Ecchi':'19+','Psychological':'스릴러'};
+  const KO_EN_MAP = {
+    '원피스':'One Piece','나루토':'Naruto','블리치':'Bleach','진격의 거인':'Attack on Titan',
+    '강철의 연금술사':'Fullmetal Alchemist','데스노트':'Death Note','슈타인즈 게이트':'Steins Gate',
+    '귀칼':'Demon Slayer','주술회전':'Jujutsu Kaisen','스파이패밀리':'Spy x Family','은혼':'Gintama',
+    '원펀맨':'One Punch Man','나의 히어로 아카데미아':'My Hero Academia','아케인':'Arcane',
+    '청춘돼지':'Rascal Does Not Dream of Bunny Girl Senpai','카구야님은 고백받고 싶어':'Kaguya-sama Love is War',
+    '니세코이':'Nisekoi','5등분의 신부':'The Quintessential Quintuplets','모브 사이코 100':'Mob Psycho 100',
+    '코난':'Detective Conan','김전일':'Kindaichi Case Files','단간론파':'Danganronpa',
+    '장송의프리렌':'Frieren Beyond Journeys End','무직전생':'Mushoku Tensei','나혼렙?':'Solo Leveling',
+    '에이티식스':'86 Eighty Six','괴수8호':'Kaiju No. 8','암살교실':'Assassination Classroom',
+    '오버로드':'Overlord','Re제로':'Re Zero','이 멋진 세계에 축복을':'KonoSuba',
+    '노 게임 노 라이프':'No Game No Life','던만추':'DanMachi',
+    '전생슬':'That Time I Got Reincarnated as a Slime','메이드래곤':'Miss Kobayashi Dragon Maid',
+    '문호 스트레이독스':'Bungo Stray Dogs','코드기어스 반역의 를르슈 / 부활의 를루슈':'Code Geass',
+    '스텐즈게이트':'Steins Gate','도쿄구울':'Tokyo Ghoul','하이큐':'Haikyuu','귀멸의 칼날':'Demon Slayer'
+  };
+  function containsKorean(s){ return /[\uAC00-\uD7A3]/.test(s); }
+  async function translateKoToEn(text){
+    try{
+      const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=ko|en`);
+      const json = await res.json();
+      const t = json && json.responseData && json.responseData.translatedText;
+      return (t && t.trim()) ? t.trim() : null;
+    }catch(e){ return null; }
+  }
 
   let items = [];
   let currentTab = 'towatch';
@@ -413,7 +438,7 @@
     }).join('');
   }
 
-  async function searchAniList(q){
+  async function searchAniListRaw(q){
     const query = `query ($search: String) { Page(perPage:8){ media(search:$search, type: ANIME, sort: SEARCH_MATCH) { id title{romaji english} coverImage{large medium} format seasonYear genres averageScore } } }`;
     const res = await fetch('https://graphql.anilist.co', {
       method:'POST',
@@ -423,6 +448,24 @@
     if(!res.ok) throw new Error('anilist http ' + res.status);
     const json = await res.json();
     return (json.data && json.data.Page && json.data.Page.media) || [];
+  }
+
+  // Korean-aware search: tries the raw query first, then falls back to a known
+  // title dictionary, then to a live translation, so Korean titles still match.
+  async function searchAniList(q){
+    let results = await searchAniListRaw(q);
+    if(results.length > 0) return results;
+    if(!containsKorean(q)) return results;
+
+    if(KO_EN_MAP[q]){
+      results = await searchAniListRaw(KO_EN_MAP[q]);
+      if(results.length > 0) return results;
+    }
+    const translated = await translateKoToEn(q);
+    if(translated && translated.toLowerCase() !== q.toLowerCase()){
+      results = await searchAniListRaw(translated);
+    }
+    return results;
   }
   function mapAniListGenres(genres){
     const out = new Set();
@@ -438,6 +481,15 @@
     let workingTags = (item.tags||[]).slice();
     let workingOtt = (item.ott||[]).slice();
     let workingReasons = (item.reasonTags||[]).slice();
+    let modalDirty = false;
+    function touch(){ modalDirty = true; }
+    function attemptClose(){
+      if(modalDirty){
+        const ok = confirm('저장하지 않은 변경사항이 있어요. 저장하지 않고 닫으시겠어요?');
+        if(!ok) return;
+      }
+      closeModal();
+    }
 
     modalRoot.innerHTML = `
       <div class="db-overlay" id="db-ov">
@@ -504,8 +556,8 @@
         </div>
       </div>
     `;
-    document.getElementById('db-close').onclick = closeModal;
-    document.getElementById('db-ov').onclick = (e)=>{ if(e.target.id==='db-ov') closeModal(); };
+    document.getElementById('db-close').onclick = attemptClose;
+    document.getElementById('db-ov').onclick = (e)=>{ if(e.target.id==='db-ov') attemptClose(); };
 
     const relinkBtn = document.getElementById('relink-btn');
     if(relinkBtn){
@@ -526,6 +578,7 @@
           area.querySelectorAll('.db-sr-item').forEach(el=>{
             el.onclick = ()=>{
               const r = results[parseInt(el.dataset.idx)];
+              touch();
               item.title = r.title.romaji || r.title.english || item.title;
               item.cover = r.coverImage?.large || r.coverImage?.medium || null;
               item.communityScore = r.averageScore ? r.averageScore/10 : null;
@@ -546,6 +599,7 @@
     function bindTagPills(){
       document.getElementById('tag-pills').querySelectorAll('.db-pill').forEach(p=>{
         p.onclick = ()=>{
+          touch();
           const v = p.dataset.v;
           if(workingTags.includes(v)) workingTags = workingTags.filter(x=>x!==v); else workingTags.push(v);
           p.classList.toggle('sel');
@@ -555,6 +609,7 @@
     bindTagPills();
     document.getElementById('ott-pills').querySelectorAll('.db-pill').forEach(p=>{
       p.onclick = ()=>{
+        touch();
         const v = p.dataset.v;
         if(workingOtt.includes(v)) workingOtt = workingOtt.filter(x=>x!==v); else workingOtt.push(v);
         p.classList.toggle('sel');
@@ -564,6 +619,7 @@
     ottCustom.onkeydown = (e)=>{
       if(e.key==='Enter' && ottCustom.value.trim()){
         e.preventDefault();
+        touch();
         workingOtt.push(ottCustom.value.trim());
         ottCustom.value='';
       }
@@ -572,6 +628,7 @@
     if(reasonPillsEl){
       reasonPillsEl.querySelectorAll('.db-pill').forEach(p=>{
         p.onclick = ()=>{
+          touch();
           const v = p.dataset.v;
           if(workingReasons.includes(v)) workingReasons = workingReasons.filter(x=>x!==v); else workingReasons.push(v);
           p.classList.toggle('sel');
@@ -581,8 +638,12 @@
     const ratingInput = document.getElementById('f-rating');
     if(ratingInput){
       const ratingVal = document.getElementById('f-rating-val');
-      ratingInput.oninput = ()=>{ ratingVal.textContent = parseFloat(ratingInput.value).toFixed(1); };
+      ratingInput.oninput = ()=>{ touch(); ratingVal.textContent = parseFloat(ratingInput.value).toFixed(1); };
     }
+    const noteFieldEl = document.getElementById('f-note');
+    if(noteFieldEl) noteFieldEl.oninput = touch;
+    const commentFieldEl = document.getElementById('f-comment');
+    if(commentFieldEl) commentFieldEl.oninput = touch;
 
     function collect(){
       item.tags = workingTags;
@@ -610,6 +671,14 @@
     let workingOtt = [];
     let pickedCover = null;
     let pickedScore = null;
+    function attemptCloseAdd(){
+      const titleVal = document.getElementById('a-title') ? document.getElementById('a-title').value.trim() : '';
+      if(titleVal || workingTags.length || workingOtt.length){
+        const ok = confirm('입력하던 내용이 있어요. 저장하지 않고 닫으시겠어요?');
+        if(!ok) return;
+      }
+      closeModal();
+    }
 
     modalRoot.innerHTML = `
       <div class="db-overlay" id="db-ov">
@@ -646,8 +715,8 @@
         </div>
       </div>
     `;
-    document.getElementById('db-close').onclick = closeModal;
-    document.getElementById('db-ov').onclick = (e)=>{ if(e.target.id==='db-ov') closeModal(); };
+    document.getElementById('db-close').onclick = attemptCloseAdd;
+    document.getElementById('db-ov').onclick = (e)=>{ if(e.target.id==='db-ov') attemptCloseAdd(); };
     modalRoot.querySelectorAll('.db-typerow button').forEach(b=>{
       b.onclick = ()=>{
         selType=b.dataset.type;
