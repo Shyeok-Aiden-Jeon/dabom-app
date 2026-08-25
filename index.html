@@ -496,6 +496,7 @@
         <div class="db-modal">
           <button class="close" id="db-close">✕</button>
           <h3>${escapeHtml(item.title)}</h3>
+          <div id="modal-alias" style="font-size:11px; color:var(--ink-faint); font-family:var(--mono); margin-top:2px;">${item.officialTitle?('원제: '+escapeHtml(item.officialTitle)):''}</div>
           <div class="db-tagrow" style="margin-top:6px;">
             <span class="db-mtag">${item.type==='webtoon'?'웹툰':'애니'}</span>
             ${item.communityScore?`<span class="db-mtag">세간 ${item.communityScore.toFixed(1)}</span>`:''}
@@ -503,6 +504,11 @@
 
           ${item.type==='anime' ? `<button class="db-linklike" id="relink-btn">🔍 실제 작품 정보 다시 찾기</button>
           <div id="relink-area"></div>` : ''}
+
+          <div class="db-field">
+            <label>제목 수정</label>
+            <input type="text" id="f-title" value="${escapeHtml(item.title)}" />
+          </div>
 
           ${!isWatched ? `
             <div class="db-field">
@@ -579,15 +585,17 @@
             el.onclick = ()=>{
               const r = results[parseInt(el.dataset.idx)];
               touch();
-              item.title = r.title.romaji || r.title.english || item.title;
+              const officialTitle = r.title.romaji || r.title.english || '';
+              item.officialTitle = officialTitle;
               item.cover = r.coverImage?.large || r.coverImage?.medium || null;
               item.communityScore = r.averageScore ? r.averageScore/10 : null;
               const mapped = mapAniListGenres(r.genres);
               mapped.forEach(t=>{ if(!workingTags.includes(t)) workingTags.push(t); });
               document.getElementById('tag-pills').innerHTML = tagPillsHtml(workingTags, TAG_VOCAB, '');
               bindTagPills();
-              area.innerHTML = `<div class="db-searchstatus">✓ "${escapeHtml(item.title)}" 정보로 갱신됨 (저장을 눌러 확정하세요)</div>`;
-              document.querySelector('.db-modal h3').textContent = item.title;
+              area.innerHTML = `<div class="db-searchstatus">✓ 표지·정보 반영됨 (원제: ${escapeHtml(officialTitle)}) — 제목은 그대로 두었어요. 저장을 눌러 확정하세요.</div>`;
+              const aliasEl = document.getElementById('modal-alias');
+              if(aliasEl) aliasEl.textContent = '원제: ' + officialTitle;
             };
           });
         }catch(e){
@@ -644,12 +652,16 @@
     if(noteFieldEl) noteFieldEl.oninput = touch;
     const commentFieldEl = document.getElementById('f-comment');
     if(commentFieldEl) commentFieldEl.oninput = touch;
+    const titleFieldEl = document.getElementById('f-title');
+    if(titleFieldEl) titleFieldEl.oninput = touch;
 
     function collect(){
       item.tags = workingTags;
       item.ott = workingOtt;
       item.reasonTags = workingReasons;
       item.comment = document.getElementById('f-comment').value;
+      const titleInput = document.getElementById('f-title');
+      if(titleInput && titleInput.value.trim()) item.title = titleInput.value.trim();
       const noteInput = document.getElementById('f-note');
       if(noteInput) item.note = noteInput.value;
       if(ratingInput) item.rating = parseFloat(ratingInput.value);
@@ -671,6 +683,7 @@
     let workingOtt = [];
     let pickedCover = null;
     let pickedScore = null;
+    let pickedOfficialTitle = null;
     function attemptCloseAdd(){
       const titleVal = document.getElementById('a-title') ? document.getElementById('a-title').value.trim() : '';
       if(titleVal || workingTags.length || workingOtt.length){
@@ -755,7 +768,10 @@
           resultsEl.querySelectorAll('.db-sr-item').forEach(el=>{
             el.onclick = ()=>{
               const r = results[parseInt(el.dataset.idx)];
-              document.getElementById('a-title').value = r.title.romaji || r.title.english || '';
+              const officialTitle = r.title.romaji || r.title.english || '';
+              const titleField = document.getElementById('a-title');
+              if(!titleField.value.trim()) titleField.value = searchInput.value.trim();
+              pickedOfficialTitle = officialTitle;
               pickedCover = r.coverImage?.large || r.coverImage?.medium || null;
               pickedScore = r.averageScore ? r.averageScore/10 : null;
               const mapped = mapAniListGenres(r.genres);
@@ -764,7 +780,7 @@
               document.getElementById('a-tags').querySelectorAll('.db-pill').forEach(p=>{
                 p.onclick = ()=>{ const v=p.dataset.v; if(workingTags.includes(v)) workingTags=workingTags.filter(x=>x!==v); else workingTags.push(v); p.classList.toggle('sel'); };
               });
-              resultsEl.innerHTML = `<div class="db-searchstatus">✓ 선택됨 — 실제 표지·정보 자동 반영</div>`;
+              resultsEl.innerHTML = `<div class="db-searchstatus">✓ 표지·정보 반영됨 (원제: ${escapeHtml(officialTitle)}) — 제목란은 그대로 두었어요</div>`;
             };
           });
         }catch(e){
@@ -782,6 +798,7 @@
         favorite:false, tags:workingTags, ott:workingOtt, reasonTags:[],
         cover: selType==='anime' ? pickedCover : null,
         communityScore: selType==='anime' ? pickedScore : null,
+        officialTitle: selType==='anime' ? pickedOfficialTitle : null,
         addedAt: Date.now()
       });
       persist(); closeModal(); currentTab='towatch'; render();
