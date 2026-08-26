@@ -468,6 +468,58 @@
     }
     return results;
   }
+
+  // Same as searchAniList, but also returns which query string actually produced
+  // the results (original / dictionary / translated) — needed to score how
+  // trustworthy a match is before auto-applying it in bulk matching.
+  async function searchAniListSmart(q){
+    let queryUsed = q;
+    let results = await searchAniListRaw(q);
+    if(results.length === 0 && containsKorean(q)){
+      if(KO_EN_MAP[q]){
+        queryUsed = KO_EN_MAP[q];
+        results = await searchAniListRaw(queryUsed);
+      }
+      if(results.length === 0){
+        const translated = await translateKoToEn(q);
+        if(translated && translated.toLowerCase() !== q.toLowerCase()){
+          queryUsed = translated;
+          results = await searchAniListRaw(translated);
+        }
+      }
+    }
+    return { results, queryUsed };
+  }
+
+  // --- title similarity scoring (used only for bulk auto-matching, where no
+  // human reviews each pick) ---
+  function normalizeForCompare(s){
+    return (s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+  }
+  function levenshtein(a,b){
+    const m=a.length, n=b.length;
+    if(m===0) return n;
+    if(n===0) return m;
+    const dp = Array.from({length:m+1}, ()=> new Array(n+1).fill(0));
+    for(let i=0;i<=m;i++) dp[i][0]=i;
+    for(let j=0;j<=n;j++) dp[0][j]=j;
+    for(let i=1;i<=m;i++){
+      for(let j=1;j<=n;j++){
+        dp[i][j] = a[i-1]===b[j-1] ? dp[i-1][j-1] : 1+Math.min(dp[i-1][j-1], dp[i-1][j], dp[i][j-1]);
+      }
+    }
+    return dp[m][n];
+  }
+  function titleSimilarity(a,b){
+    const na = normalizeForCompare(a), nb = normalizeForCompare(b);
+    if(!na || !nb) return 0;
+    if(na===nb) return 1;
+    if(na.length>=3 && nb.length>=3 && (na.includes(nb) || nb.includes(na))) return 0.85;
+    const dist = levenshtein(na, nb);
+    const maxLen = Math.max(na.length, nb.length);
+    return 1 - dist/maxLen;
+  }
+  const MATCH_CONFIDENCE_THRESHOLD = 0.6;
   function mapAniListGenres(genres){
     const out = new Set();
     (genres||[]).forEach(g=>{ if(GENRE_MAP[g]) out.add(GENRE_MAP[g]); });
@@ -841,7 +893,7 @@
     document.getElementById('bulk-cancel').onclick = ()=>{ cancelled = true; };
     document.getElementById('db-close').onclick = ()=>{ cancelled = true; closeModal(); };
 
-    let matched = 0, failed = 0;
+    let matched = 0, noResult = 0, lowConfidence = 0;
     for(let i=0; i<targets.length; i++){
       if(cancelled) break;
       const item = targets[i];
@@ -850,24 +902,38 @@
       if(progEl) progEl.textContent = `${i+1} / ${targets.length}`;
       if(curEl) curEl.textContent = item.title;
       try{
-        const results = await searchAniList(item.title);
+        const { results, queryUsed } = await searchAniListSmart(item.title);
         if(results && results.length){
-          // among the top matches, prefer the oldest release (original series over remakes/sequels/movies)
-          const withYear = results.filter(r => r.seasonYear);
-          const pick = (withYear.length ? withYear.slice().sort((a,b)=> a.seasonYear - b.seasonYear)[0] : results[0]);
-          item.officialTitle = pick.title.romaji || pick.title.english || '';
-          item.cover = (pick.coverImage && (pick.coverImage.large || pick.coverImage.medium)) || null;
-          item.communityScore = pick.averageScore ? pick.averageScore/10 : null;
-          const mapped = mapAniListGenres(pick.genres);
-          const curTags = new Set(item.tags || []);
-          mapped.forEach(t=>curTags.add(t));
-          item.tags = Array.from(curTags);
-          matched++;
+          // score each candidate against the query string that actually produced
+          // results (original / dictionary / translated) — reject weak matches
+          const scored = results.map(r => ({
+            r,
+            score: Math.max(
+              titleSimilarity(queryUsed, r.title.romaji || ''),
+              titleSimilarity(queryUsed, r.title.english || '')
+            )
+          })).filter(x => x.score >= MATCH_CONFIDENCE_THRESHOLD);
+
+          if(scored.length === 0){
+            lowConfidence++;
+          }else{
+            // among confident matches, prefer the oldest release (original series over remakes/sequels/movies)
+            const withYear = scored.filter(x => x.r.seasonYear);
+            const pick = (withYear.length ? withYear.slice().sort((a,b)=> a.r.seasonYear - b.r.seasonYear)[0] : scored[0]).r;
+            item.officialTitle = pick.title.romaji || pick.title.english || '';
+            item.cover = (pick.coverImage && (pick.coverImage.large || pick.coverImage.medium)) || null;
+            item.communityScore = pick.averageScore ? pick.averageScore/10 : null;
+            const mapped = mapAniListGenres(pick.genres);
+            const curTags = new Set(item.tags || []);
+            mapped.forEach(t=>curTags.add(t));
+            item.tags = Array.from(curTags);
+            matched++;
+          }
         }else{
-          failed++;
+          noResult++;
         }
       }catch(e){
-        failed++;
+        noResult++;
       }
       await new Promise(res=>setTimeout(res, 300));
     }
@@ -875,12 +941,13 @@
     if(!cancelled || matched > 0){
       await persist();
     }
+    const failed = noResult + lowConfidence;
     modalRoot.innerHTML = `
       <div class="db-overlay" id="db-ov">
         <div class="db-modal">
           <button class="close" id="db-close">✕</button>
           <h3>일괄 매칭 ${cancelled?'중단됨':'완료'}</h3>
-          <div class="db-searchstatus">✓ 매칭됨: ${matched}개 · 못 찾음: ${failed}개${cancelled?` · 처리 안 함: ${targets.length - matched - failed}개`:''}</div>
+          <div class="db-searchstatus">✓ 매칭됨: ${matched}개 · 검색 결과 없음: ${noResult}개 · 유사도 낮아 건너뜀: ${lowConfidence}개${cancelled?` · 처리 안 함: ${targets.length - matched - failed}개`:''}</div>
           <div class="db-note" style="margin-top:8px;">제목은 그대로 두었고, 표지·태그·세간평점만 채웠어요. 못 찾은 항목은 카드를 열어 "실제 작품 정보 다시 찾기"로 개별 시도해보세요.</div>
           <div class="db-actions"><button class="db-btn primary" id="bulk-done">확인</button></div>
         </div>
