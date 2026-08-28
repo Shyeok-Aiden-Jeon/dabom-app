@@ -167,6 +167,9 @@
     <div class="db-wordmark">다봄 <small>Anime &amp; Webtoon Archive</small></div>
     <div class="db-stats" id="db-stats"></div>
   </div>
+  <div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
+    <button class="db-uploadbtn" id="db-export-btn">📋 내보내기 (추천용)</button>
+  </div>
   <div class="db-syncbanner" id="db-syncbanner"></div>
 
   <div class="db-tabbar" id="db-tabbar"></div>
@@ -980,6 +983,78 @@
     render();
   }
   document.getElementById('db-bulk-btn').onclick = runBulkMatch;
+
+  function buildExportText(){
+    const watched = items.filter(i=>i.status==='watched').slice()
+      .sort((a,b)=>(b.rating||0)-(a.rating||0));
+    const dropped = items.filter(i=>i.status==='dropped');
+    const towatchFav = items.filter(i=>i.status==='towatch' && i.favorite);
+
+    const lines = [];
+    lines.push('# 다봄 내보내기 — ' + new Date().toLocaleDateString('ko-KR'));
+    lines.push('');
+    lines.push(`## 다 본 것 (${watched.length}개, 평점 높은순)`);
+    watched.forEach(i=>{
+      const rating = (i.rating!=null) ? i.rating.toFixed(1) : '미평가';
+      const tags = (i.tags||[]).join(',') || '태그없음';
+      const type = i.type==='webtoon' ? '웹툰' : '애니';
+      const comment = (i.comment||'').replace(/\n/g,' ').trim();
+      lines.push(`- [${type}] ${i.title} | 평점 ${rating} | 태그: ${tags}${comment?` | 코멘트: ${comment}`:''}`);
+    });
+    if(dropped.length){
+      lines.push('');
+      lines.push(`## 중도하차 (${dropped.length}개)`);
+      dropped.forEach(i=>{
+        const reasons = (i.reasonTags||[]).join(',') || '사유 미기재';
+        const comment = (i.comment||'').replace(/\n/g,' ').trim();
+        lines.push(`- ${i.title} | 사유: ${reasons}${comment?` | 코멘트: ${comment}`:''}`);
+      });
+    }
+    if(towatchFav.length){
+      lines.push('');
+      lines.push(`## 즐겨찾기한 안 본 것 (${towatchFav.length}개, 관심도 참고용)`);
+      towatchFav.forEach(i=> lines.push(`- ${i.title}`));
+    }
+    return lines.join('\n');
+  }
+
+  function openExportModal(){
+    const text = buildExportText();
+    modalRoot.innerHTML = `
+      <div class="db-overlay" id="db-ov">
+        <div class="db-modal">
+          <button class="close" id="db-close">✕</button>
+          <h3>내보내기</h3>
+          <div class="db-note" style="margin-top:4px;">이 내용을 복사해서 Claude 대화에 붙여넣으면, 취향 참고해서 추천받을 수 있어요.</div>
+          <div class="db-field">
+            <textarea id="export-text" readonly style="min-height:280px; font-family:var(--mono); font-size:11px; white-space:pre-wrap;">${escapeHtml(text)}</textarea>
+          </div>
+          <div class="db-actions">
+            <button class="db-btn primary" id="export-copy">📋 클립보드에 복사</button>
+          </div>
+        </div>
+      </div>`;
+    document.getElementById('db-close').onclick = closeModal;
+    document.getElementById('db-ov').onclick = (e)=>{ if(e.target.id==='db-ov') closeModal(); };
+    document.getElementById('export-copy').onclick = async ()=>{
+      const ta = document.getElementById('export-text');
+      let copied = false;
+      try{
+        await navigator.clipboard.writeText(ta.value);
+        copied = true;
+      }catch(e){
+        ta.removeAttribute('readonly');
+        ta.focus();
+        ta.select();
+        try{ copied = document.execCommand('copy'); }catch(e2){}
+        ta.setAttribute('readonly','true');
+      }
+      const btn = document.getElementById('export-copy');
+      btn.textContent = copied ? '✓ 복사됨!' : '복사 실패 — 직접 선택해서 복사해주세요';
+      setTimeout(()=>{ btn.textContent = '📋 클립보드에 복사'; }, 2000);
+    };
+  }
+  document.getElementById('db-export-btn').onclick = openExportModal;
   document.getElementById('db-tagtoggle').onclick = ()=>{
     tagFilterOpen = !tagFilterOpen;
     tagFilterEl.classList.toggle('open', tagFilterOpen);
