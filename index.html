@@ -532,6 +532,7 @@
     const isWatched = item.status==='watched';
     const isDropped = item.status==='dropped';
     let workingTags = (item.tags||[]).slice();
+    let workingType = item.type;
     let workingOtt = (item.ott||[]).slice();
     let workingReasons = (item.reasonTags||[]).slice();
     let modalDirty = false;
@@ -561,6 +562,14 @@
           <div class="db-field">
             <label>제목 수정</label>
             <input type="text" id="f-title" value="${escapeHtml(item.title)}" />
+          </div>
+
+          <div class="db-field">
+            <label>종류</label>
+            <div class="db-typerow" id="type-toggle">
+              <button data-type="anime" class="${item.type==='anime'?'sel':''}">🎬 애니메이션</button>
+              <button data-type="webtoon" class="${item.type==='webtoon'?'sel':''}">📖 웹툰</button>
+            </div>
           </div>
 
           ${!isWatched ? `
@@ -707,9 +716,23 @@
     if(commentFieldEl) commentFieldEl.oninput = touch;
     const titleFieldEl = document.getElementById('f-title');
     if(titleFieldEl) titleFieldEl.oninput = touch;
+    document.getElementById('type-toggle').querySelectorAll('button').forEach(b=>{
+      b.onclick = ()=>{
+        touch();
+        workingType = b.dataset.type;
+        document.getElementById('type-toggle').querySelectorAll('button').forEach(x=>x.classList.remove('sel'));
+        b.classList.add('sel');
+      };
+    });
 
     function collect(){
       item.tags = workingTags;
+      item.type = workingType;
+      if(workingType === 'webtoon'){
+        item.cover = null;
+        item.officialTitle = null;
+        item.communityScore = null;
+      }
       item.ott = workingOtt;
       item.reasonTags = workingReasons;
       item.comment = document.getElementById('f-comment').value;
